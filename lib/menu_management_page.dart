@@ -1,31 +1,11 @@
 import 'package:flutter/material.dart';
+import 'api_service.dart';
+import 'models/menu_item.dart';
 
 const Color _teal = Color(0xFF00B8C8);
 const Color _bg = Color(0xFFF5F8FA);
 const Color _text = Color(0xFF172B3A);
 const double _bottomNavClearance = 96;
-
-class MenuItemData {
-  final String name;
-  final String category;
-  final String description;
-  final double price;
-  final int stock;
-  final IconData icon;
-  final Color color;
-  bool isAvailable;
-
-  MenuItemData({
-    required this.name,
-    required this.category,
-    required this.description,
-    required this.price,
-    required this.stock,
-    required this.icon,
-    required this.color,
-    required this.isAvailable,
-  });
-}
 
 class MenuManagementPage extends StatefulWidget {
   const MenuManagementPage({super.key});
@@ -36,49 +16,23 @@ class MenuManagementPage extends StatefulWidget {
 
 class _MenuManagementPageState extends State<MenuManagementPage> {
   String _selectedFilter = 'Semua';
+  List<MenuItemData> _menus = [];
+  bool _isLoading = true;
 
-  final List<MenuItemData> _menus = [
-    MenuItemData(
-      name: 'Ayam Geprek Sambal Matah',
-      category: 'Makanan',
-      description: 'Nasi, ayam geprek, sambal matah, lalapan',
-      price: 25000,
-      stock: 18,
-      icon: Icons.rice_bowl_outlined,
-      color: const Color(0xFFFFB74D),
-      isAvailable: true,
-    ),
-    MenuItemData(
-      name: 'Es Teh Manis Jumbo',
-      category: 'Minuman',
-      description: 'Teh manis dingin ukuran jumbo',
-      price: 5000,
-      stock: 0,
-      icon: Icons.local_drink_outlined,
-      color: const Color(0xFF4FC3F7),
-      isAvailable: false,
-    ),
-    MenuItemData(
-      name: 'Mie Ayam Bakso',
-      category: 'Makanan',
-      description: 'Mie ayam dengan bakso sapi dan pangsit',
-      price: 22000,
-      stock: 12,
-      icon: Icons.ramen_dining_outlined,
-      color: const Color(0xFF81C784),
-      isAvailable: true,
-    ),
-    MenuItemData(
-      name: 'Kopi Susu Kampus',
-      category: 'Minuman',
-      description: 'Kopi susu dingin gula aren',
-      price: 12000,
-      stock: 0,
-      icon: Icons.coffee_outlined,
-      color: const Color(0xFFA1887F),
-      isAvailable: false,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchMenus();
+  }
+
+  Future<void> _fetchMenus() async {
+    setState(() => _isLoading = true);
+    final data = await ApiService.getMenus();
+    setState(() {
+      _menus = data;
+      _isLoading = false;
+    });
+  }
 
   List<MenuItemData> get _filteredMenus {
     if (_selectedFilter == 'Semua') {
@@ -117,67 +71,73 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
         ],
       ),
       body: SafeArea(
-        child: isMenuEmpty
-            ? _EmptyMenuState(onAdd: _openAddMenuPage)
-            : Column(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    color: Colors.white,
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-                    child: Row(
-                      children: [
-                        _FilterChipButton(
-                          label: 'Semua',
-                          selected: _selectedFilter == 'Semua',
-                          onTap: () => setState(() => _selectedFilter = 'Semua'),
-                        ),
-                        const SizedBox(width: 8),
-                        _FilterChipButton(
-                          label: 'Makanan',
-                          selected: _selectedFilter == 'Makanan',
-                          onTap: () =>
-                              setState(() => _selectedFilter = 'Makanan'),
-                        ),
-                        const SizedBox(width: 8),
-                        _FilterChipButton(
-                          label: 'Minuman',
-                          selected: _selectedFilter == 'Minuman',
-                          onTap: () =>
-                              setState(() => _selectedFilter = 'Minuman'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: _filteredMenus.isEmpty
-                        ? const _SmallEmptyState()
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(
-                              16,
-                              16,
-                              16,
-                              168,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: _teal))
+            : isMenuEmpty
+                ? _EmptyMenuState(onAdd: _openAddMenuPage)
+                : Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        color: Colors.white,
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+                        child: Row(
+                          children: [
+                            _FilterChipButton(
+                              label: 'Semua',
+                              selected: _selectedFilter == 'Semua',
+                              onTap: () => setState(() => _selectedFilter = 'Semua'),
                             ),
-                            itemCount: _filteredMenus.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final menu = _filteredMenus[index];
-                              return _MenuCard(
-                                menu: menu,
-                                onToggle: (value) => _toggleAvailability(
-                                  menu,
-                                  value: value,
+                            const SizedBox(width: 8),
+                            _FilterChipButton(
+                              label: 'Makanan',
+                              selected: _selectedFilter == 'Makanan',
+                              onTap: () =>
+                                  setState(() => _selectedFilter = 'Makanan'),
+                            ),
+                            const SizedBox(width: 8),
+                            _FilterChipButton(
+                              label: 'Minuman',
+                              selected: _selectedFilter == 'Minuman',
+                              onTap: () =>
+                                  setState(() => _selectedFilter = 'Minuman'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: _filteredMenus.isEmpty
+                            ? const _SmallEmptyState()
+                            : RefreshIndicator(
+                                onRefresh: _fetchMenus,
+                                color: _teal,
+                                child: ListView.separated(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    16,
+                                    16,
+                                    168,
+                                  ),
+                                  itemCount: _filteredMenus.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 12),
+                                  itemBuilder: (context, index) {
+                                    final menu = _filteredMenus[index];
+                                    return _MenuCard(
+                                      menu: menu,
+                                      onToggle: (value) => _toggleAvailability(
+                                        menu,
+                                        value: value,
+                                      ),
+                                      onEdit: () => _openEditMenuPage(menu),
+                                      onDelete: () => _confirmDeleteMenu(menu),
+                                    );
+                                  },
                                 ),
-                                onEdit: () => _openEditMenuPage(menu),
-                                onDelete: () => _confirmDeleteMenu(menu),
-                              );
-                            },
-                          ),
+                              ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: _bottomNavClearance),
@@ -197,11 +157,27 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
     );
   }
 
-  void _toggleAvailability(MenuItemData menu, {required bool value}) {
+  void _toggleAvailability(MenuItemData menu, {required bool value}) async {
+    // Optimistic UI update
     setState(() {
       menu.isAvailable = value;
     });
 
+    if (menu.id != null) {
+      final success = await ApiService.updateProductStatus(menu.id!, value);
+      if (!success && mounted) {
+        // Revert on failure
+        setState(() {
+          menu.isAvailable = !value;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memperbarui status menu')),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -214,57 +190,41 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
   }
 
   Future<void> _openAddMenuPage() async {
-    final addedMenu = await Navigator.push<MenuItemData>(
+    final added = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => const AddMenuPage(),
       ),
     );
 
-    if (addedMenu == null || !mounted) {
-      return;
+    if (added == true && mounted) {
+      _fetchMenus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Menu berhasil ditambahkan'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
-
-    setState(() {
-      _menus.insert(0, addedMenu);
-      _selectedFilter = 'Semua';
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Menu berhasil ditambahkan'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   Future<void> _openEditMenuPage(MenuItemData menu) async {
-    final editedMenu = await Navigator.push<MenuItemData>(
+    final edited = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => AddMenuPage(initialMenu: menu),
       ),
     );
 
-    if (editedMenu == null || !mounted) {
-      return;
+    if (edited == true && mounted) {
+      _fetchMenus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Menu berhasil diperbarui'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
-
-    final index = _menus.indexOf(menu);
-    if (index == -1) {
-      return;
-    }
-
-    setState(() {
-      _menus[index] = editedMenu;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Menu berhasil diperbarui'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   Future<void> _confirmDeleteMenu(MenuItemData menu) async {
@@ -327,20 +287,27 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
       ),
     );
 
-    if (confirmed != true || !mounted) {
+    if (confirmed != true || !mounted || menu.id == null) {
       return;
     }
 
-    setState(() {
-      _menus.remove(menu);
-    });
+    final success = await ApiService.deleteMenu(menu.id!);
+    if (success && mounted) {
+      setState(() {
+        _menus.remove(menu);
+      });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${menu.name} berhasil dihapus'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${menu.name} berhasil dihapus'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal menghapus menu')),
+      );
+    }
   }
 }
 
@@ -515,16 +482,28 @@ class _MenuImage extends StatelessWidget {
         AnimatedOpacity(
           opacity: unavailable ? 0.45 : 1,
           duration: const Duration(milliseconds: 180),
-          child: Container(
-            width: 78,
-            height: 78,
-            decoration: BoxDecoration(
-              color: menu.color.withValues(alpha: 0.18),
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                menu.imagePath,
+                width: 78,
+                height: 78,
+                fit: BoxFit.cover,
+              ),
             ),
-            child: Icon(menu.icon, color: menu.color, size: 36),
           ),
-        ),
+          Positioned.fill(
+            child: Container(
+              width: 78,
+              height: 78,
+              decoration: BoxDecoration(
+                color: unavailable
+                    ? Colors.black.withValues(alpha: 0.10)
+                    : Colors.black.withValues(alpha: 0.02),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
         if (unavailable)
           Positioned.fill(
             child: Container(
@@ -641,28 +620,6 @@ class _EmptyMenuState extends StatelessWidget {
                 fontSize: 14,
                 height: 1.45,
                 fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: onAdd,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('+ Tambah Menu'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _teal,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
               ),
             ),
           ],
@@ -807,6 +764,7 @@ class _AddMenuPageState extends State<AddMenuPage> {
   bool _nameTouched = false;
   bool _priceTouched = false;
   bool _formattingPrice = false;
+  bool _isLoading = false;
 
   bool get _isEditMode => widget.initialMenu != null;
 
@@ -1026,27 +984,29 @@ class _AddMenuPageState extends State<AddMenuPage> {
               Expanded(
                 child: SizedBox(
                   height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: _isValid ? _saveMenu : null,
-                    icon: const Icon(Icons.save_outlined, size: 18),
-                    label: Text(
-                      _isEditMode ? 'Simpan Perubahan' : 'Simpan Menu',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _teal,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: const Color(0xFFE4EAEE),
-                      disabledForegroundColor: const Color(0xFF9AA7B2),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator(color: _teal))
+                      : ElevatedButton.icon(
+                          onPressed: _isValid ? _saveMenu : null,
+                          icon: const Icon(Icons.save_outlined, size: 18),
+                          label: Text(
+                            _isEditMode ? 'Simpan Perubahan' : 'Simpan Menu',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _teal,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: const Color(0xFFE4EAEE),
+                            disabledForegroundColor: const Color(0xFF9AA7B2),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            textStyle: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -1094,32 +1054,65 @@ class _AddMenuPageState extends State<AddMenuPage> {
     });
   }
 
-  void _saveMenu() {
+  Future<void> _saveMenu() async {
     setState(() => _submitted = true);
 
     if (!_isValid) {
       return;
     }
 
-    final menu = MenuItemData(
-      name: _nameController.text.trim(),
-      category: _category,
-      description: _descriptionController.text.trim().isEmpty
+    setState(() => _isLoading = true);
+
+    final data = {
+      'name': _nameController.text.trim(),
+      'category': _category,
+      'description': _descriptionController.text.trim().isEmpty
           ? 'Belum ada deskripsi menu'
           : _descriptionController.text.trim(),
-      price: _priceValue.toDouble(),
-      stock: _stock,
-      icon: _category == 'Makanan'
-          ? widget.initialMenu?.icon ?? Icons.rice_bowl_outlined
-          : widget.initialMenu?.icon ?? Icons.local_drink_outlined,
-      color: _category == 'Makanan'
-          ? const Color(0xFFFFB74D)
-          : const Color(0xFF4FC3F7),
-      isAvailable: _stock > 0 && _isAvailable,
-    );
+      'price': _priceValue.toDouble(),
+      'stock': _stock,
+      'status': (_stock > 0 && _isAvailable) ? 'available' : 'unavailable',
+    };
 
-    Navigator.pop(context, menu);
+    bool success;
+    if (_isEditMode && widget.initialMenu!.id != null) {
+      success = await ApiService.updateMenu(widget.initialMenu!.id!, data);
+    } else {
+      success = await ApiService.addMenu(data);
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (success) {
+        Navigator.pop(context, true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal menyimpan menu')),
+        );
+      }
+    }
   }
+}
+
+String _menuImageForNameAndCategory(String name, String category) {
+  final normalized = name.toLowerCase();
+
+  if (normalized.contains('geprek') || normalized.contains('ayam')) {
+    return 'assets/images/ayamgeprek.jpg';
+  }
+  if (normalized.contains('teh')) {
+    return 'assets/images/esteh.jpg';
+  }
+  if (normalized.contains('kopi')) {
+    return 'assets/images/kopisusu.jpg';
+  }
+  if (normalized.contains('mie')) {
+    return 'assets/images/mieayam.jpg';
+  }
+
+  return category == 'Makanan'
+      ? 'assets/images/ayamgeprek.jpg'
+      : 'assets/images/esteh.jpg';
 }
 
 class _UploadPhotoCard extends StatelessWidget {

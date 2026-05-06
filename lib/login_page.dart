@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'main_navigation.dart';
 import 'register_page.dart';
+import 'api_service.dart';
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
@@ -11,6 +14,41 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> _login() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email dan password harus diisi')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await ApiService.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+
+      // Login berhasil
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigation()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +70,7 @@ class _LoginPageState extends State<LoginPage> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.1),
+                    Colors.black.withValues(alpha: 0.1),
                     Colors.white,
                   ],
                 ),
@@ -55,16 +93,17 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 15,
                           offset: const Offset(0, 5),
                         )
                       ],
                     ),
-                    child: const Icon(
-                      Icons.account_balance_wallet,
-                      size: 60,
-                      color: Color(0xFF00BCC9),
+                    child: Image.asset(
+                      'assets/images/edupays.png',
+                      width: 70,
+                      height: 70,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
@@ -119,25 +158,25 @@ class _LoginPageState extends State<LoginPage> {
                       SizedBox(
                         width: double.infinity,
                         height: 55,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => MainNavigation()),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00BCC9),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Text(
-                            "Masuk",
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                        ),
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator(color: Color(0xFF00BCC9)))
+                            : ElevatedButton(
+                                onPressed: _login,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00BCC9),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: const Text(
+                                  "Masuk",
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
+                                ),
+                              ),
                       ),
 
                       const SizedBox(height: 30),
@@ -160,7 +199,7 @@ class _LoginPageState extends State<LoginPage> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => RegisterPage(),
+                                        builder: (context) => const RegisterPage(),
                                       ),
                                     );
                                   },
@@ -172,6 +211,7 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 40),
               ],
             ),
           ),

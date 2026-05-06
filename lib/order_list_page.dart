@@ -1,54 +1,11 @@
 import 'package:flutter/material.dart';
-
+import 'api_service.dart';
+import 'models/order.dart';
 import 'order_detail_page.dart';
 
 const Color kOrderTeal = Color(0xFF00B8C8);
 const Color kOrderBg = Color(0xFFF5F8FA);
 const Color kOrderText = Color(0xFF172B3A);
-
-class Order {
-  final String id;
-  final String customerName;
-  final String menuName;
-  final double price;
-  final String status;
-  final DateTime orderTime;
-  final String? note;
-  final int quantity;
-  final String? secondMenuName;
-  final double? secondMenuPrice;
-  final int secondQuantity;
-  final Color avatarColor;
-  final String? cancelReason;
-  final DateTime? cancelTime;
-
-  Order({
-    required this.id,
-    required this.customerName,
-    required this.menuName,
-    required this.price,
-    required this.status,
-    required this.orderTime,
-    this.note,
-    this.quantity = 1,
-    this.secondMenuName,
-    this.secondMenuPrice,
-    this.secondQuantity = 1,
-    required this.avatarColor,
-    this.cancelReason,
-    this.cancelTime,
-  });
-
-  double get totalPrice => (price * quantity) +
-      ((secondMenuPrice ?? 0) * (secondMenuName == null ? 0 : secondQuantity));
-
-  String get summary {
-    if (secondMenuName == null) {
-      return '$quantity x $menuName';
-    }
-    return '$quantity x $menuName, $secondQuantity x $secondMenuName';
-  }
-}
 
 class OrderListPage extends StatefulWidget {
   const OrderListPage({super.key});
@@ -60,82 +17,23 @@ class OrderListPage extends StatefulWidget {
 class _OrderListPageState extends State<OrderListPage> {
   int _selectedTab = 0;
   int _historyLimit = 3;
+  List<Order> allOrders = [];
+  bool _isLoading = true;
 
-  late final List<Order> allOrders = [
-    Order(
-      id: 'ORD-202304-001',
-      customerName: 'Budi Santoso',
-      menuName: 'Ayam Geprek Sambal Matah',
-      price: 25000,
-      status: 'Menunggu',
-      orderTime: DateTime.now().subtract(const Duration(minutes: 5)),
-      note: 'Sambal dipisah ya kak.',
-      quantity: 1,
-      secondMenuName: 'Es Teh Manis',
-      secondMenuPrice: 5000,
-      secondQuantity: 1,
-      avatarColor: const Color(0xFFD18C55),
-    ),
-    Order(
-      id: 'ORD-202304-002',
-      customerName: 'Salsabila',
-      menuName: 'Ayam Geprek Sambal Bawang',
-      price: 15000,
-      status: 'Diproses',
-      orderTime: DateTime.now().subtract(const Duration(minutes: 12)),
-      note: 'Level sedang.',
-      avatarColor: const Color(0xFFE96D8B),
-    ),
-    Order(
-      id: 'ORD-202304-003',
-      customerName: 'Rizky Pratama',
-      menuName: 'Es Teh Manis Jumbo',
-      price: 5000,
-      status: 'Siap Diambil',
-      orderTime: DateTime.now().subtract(const Duration(minutes: 18)),
-      note: 'Tanpa gula tambahan.',
-      avatarColor: const Color(0xFF7B8EF0),
-    ),
-    Order(
-      id: 'ORD-202304-004',
-      customerName: 'Dewi Santoso',
-      menuName: 'Nasi Goreng Spesial',
-      price: 35000,
-      status: 'Dibatalkan',
-      orderTime: DateTime.now().subtract(const Duration(hours: 1, minutes: 15)),
-      note: 'Tidak pakai acar.',
-      avatarColor: const Color(0xFFFFB74D),
-      cancelReason: 'Bahan baku ayam geprek habis',
-      cancelTime: DateTime.now().subtract(const Duration(minutes: 45)),
-    ),
-    Order(
-      id: 'ORD-202304-005',
-      customerName: 'Siti Aminah',
-      menuName: 'Ayam Penyet Sambal Ijo',
-      price: 28000,
-      status: 'Selesai',
-      orderTime: DateTime.now().subtract(const Duration(hours: 2)),
-      avatarColor: const Color(0xFF80CBC4),
-    ),
-    Order(
-      id: 'ORD-202304-006',
-      customerName: 'Andi Wijaya',
-      menuName: 'Mie Ayam Bakso',
-      price: 22000,
-      status: 'Selesai',
-      orderTime: DateTime.now().subtract(const Duration(hours: 3)),
-      avatarColor: const Color(0xFF90CAF9),
-    ),
-    Order(
-      id: 'ORD-202304-007',
-      customerName: 'Rina Kartika',
-      menuName: 'Bakso Urat Komplit',
-      price: 25000,
-      status: 'Selesai',
-      orderTime: DateTime.now().subtract(const Duration(hours: 5)),
-      avatarColor: const Color(0xFFCE93D8),
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders();
+  }
+
+  Future<void> _fetchOrders() async {
+    setState(() => _isLoading = true);
+    final data = await ApiService.getOrders();
+    setState(() {
+      allOrders = data;
+      _isLoading = false;
+    });
+  }
 
   List<Order> get _activeOrders => allOrders
       .where(
@@ -180,45 +78,51 @@ class _OrderListPageState extends State<OrderListPage> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 2, 16, 14),
-              child: Row(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: kOrderTeal))
+            : Column(
                 children: [
-                  _FilterChipButton(
-                    label: 'Aktif ($activeCount)',
-                    selected: _selectedTab == 0,
-                    onTap: () => setState(() => _selectedTab = 0),
+                  Container(
+                    color: Colors.white,
+                    padding: const EdgeInsets.fromLTRB(16, 2, 16, 14),
+                    child: Row(
+                      children: [
+                        _FilterChipButton(
+                          label: 'Aktif ($activeCount)',
+                          selected: _selectedTab == 0,
+                          onTap: () => setState(() => _selectedTab = 0),
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterChipButton(
+                          label: 'Selesai',
+                          selected: _selectedTab == 1,
+                          onTap: () => setState(() => _selectedTab = 1),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _FilterChipButton(
-                    label: 'Selesai',
-                    selected: _selectedTab == 1,
-                    onTap: () => setState(() => _selectedTab = 1),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _fetchOrders,
+                      color: kOrderTeal,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: _selectedTab == 0
+                            ? _ActiveOrderList(
+                                key: const ValueKey('active'),
+                                orders: _activeOrders,
+                              )
+                            : _HistoryOrderList(
+                                key: const ValueKey('history'),
+                                orders: _historyOrders.take(_historyLimit).toList(),
+                                canShowMore: _historyLimit < _historyOrders.length,
+                                onShowMore: () => setState(() => _historyLimit += 3),
+                              ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: _selectedTab == 0
-                    ? _ActiveOrderList(
-                        key: const ValueKey('active'),
-                        orders: _activeOrders,
-                      )
-                    : _HistoryOrderList(
-                        key: const ValueKey('history'),
-                        orders: _historyOrders.take(_historyLimit).toList(),
-                        canShowMore: _historyLimit < _historyOrders.length,
-                        onShowMore: () => setState(() => _historyLimit += 3),
-                      ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -608,16 +512,22 @@ class _Avatar extends StatelessWidget {
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: order.avatarColor.withValues(alpha: 0.22),
         shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF173241).withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      alignment: Alignment.center,
-      child: Text(
-        order.customerName.substring(0, 1).toUpperCase(),
-        style: TextStyle(
-          color: order.avatarColor,
-          fontWeight: FontWeight.w900,
-          fontSize: 16,
+      child: ClipOval(
+        child: Image.asset(
+          order.avatarImagePath,
+          width: 42,
+          height: 42,
+          fit: BoxFit.cover,
         ),
       ),
     );

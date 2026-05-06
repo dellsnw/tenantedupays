@@ -3,22 +3,32 @@ import 'dart:async';
 import 'onboarding_page.dart';
 
 class SplashPage extends StatefulWidget {
+  const SplashPage({super.key});
+
   @override
   State<SplashPage> createState() => _SplashPageState();
 }
 
 class _SplashPageState extends State<SplashPage> {
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
 
-    Timer(Duration(seconds: 3), () {
+    _timer = Timer(Duration(seconds: 3), () {
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => OnboardingPage()),
+        MaterialPageRoute(builder: (context) => const OnboardingPage()),
       );
     });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override

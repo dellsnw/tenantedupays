@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'api_service.dart';
+import 'order_list_page.dart' show formatCurrency;
 
 const Color _teal = Color(0xFF00B8C8);
 const Color _bg = Color(0xFFF5F8FA);
@@ -55,88 +57,58 @@ class LaporanPage extends StatefulWidget {
 
 class _LaporanPageState extends State<LaporanPage> {
   String _selectedPeriod = 'Bulan Ini';
+  bool _isLoading = true;
+  
+  ReportPeriodData _currentData = const ReportPeriodData(
+    period: 'Bulan Ini',
+    monthLabel: 'Pilih Periode',
+    revenue: 0,
+    transactions: 0,
+    dailyAverage: 0,
+    revenueGrowth: 0,
+    transactionGrowth: 0,
+    averageGrowth: 0,
+    chartValues: [],
+  );
 
-  static const List<ReportPeriodData> _periods = [
-    ReportPeriodData(
-      period: 'Bulan Ini',
-      monthLabel: 'Juni 2024',
-      revenue: 12890000,
-      transactions: 42,
-      dailyAverage: 300000,
-      revenueGrowth: 12.5,
-      transactionGrowth: 8.2,
-      averageGrowth: -4.1,
-      chartValues: [4.4, 5.1, 4.8, 6.1, 5.9, 7.5],
-    ),
-    ReportPeriodData(
-      period: '30 Hari Terakhir',
-      monthLabel: '30 Hari Terakhir',
-      revenue: 11240000,
-      transactions: 38,
-      dailyAverage: 274000,
-      revenueGrowth: 7.8,
-      transactionGrowth: 4.6,
-      averageGrowth: 2.2,
-      chartValues: [3.9, 4.4, 4.2, 5.2, 5.5, 6.4],
-    ),
-    ReportPeriodData(
-      period: 'Tahun Ini',
-      monthLabel: '2024',
-      revenue: 68250000,
-      transactions: 248,
-      dailyAverage: 379000,
-      revenueGrowth: 18.4,
-      transactionGrowth: 11.8,
-      averageGrowth: 5.7,
-      chartValues: [7.5, 8.2, 9.8, 11.3, 13.2, 17.4],
-    ),
-  ];
+  List<ProductReport> _topProducts = [];
 
-  static const List<ProductReport> _products = [
-    ProductReport(
-      name: 'Kopi Susu Gula Aren',
-      category: 'Minuman',
-      sold: 40,
-      revenue: 4000000,
-      color: Color(0xFFB2DFDB),
-      icon: Icons.coffee_outlined,
-    ),
-    ProductReport(
-      name: 'Nasi Goreng Spesial',
-      category: 'Makanan',
-      sold: 10,
-      revenue: 500000,
-      color: Color(0xFFFFD180),
-      icon: Icons.rice_bowl_outlined,
-    ),
-    ProductReport(
-      name: 'Croissant Almond',
-      category: 'Pastry',
-      sold: 420,
-      revenue: 1500000,
-      color: Color(0xFFD1C4E9),
-      icon: Icons.bakery_dining_outlined,
-    ),
-    ProductReport(
-      name: 'Es Teh Manis',
-      category: 'Minuman',
-      sold: 90,
-      revenue: 900000,
-      color: Color(0xFFBBDEFB),
-      icon: Icons.local_drink_outlined,
-    ),
-    ProductReport(
-      name: 'Mie Ayam Bakso',
-      category: 'Makanan',
-      sold: 24,
-      revenue: 528000,
-      color: Color(0xFFC8E6C9),
-      icon: Icons.ramen_dining_outlined,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
-  ReportPeriodData get _data =>
-      _periods.firstWhere((item) => item.period == _selectedPeriod);
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final summary = await ApiService.getSummary();
+      setState(() {
+        _currentData = ReportPeriodData(
+          period: 'Bulan Ini',
+          monthLabel: 'Bulan ${DateTime.now().month}/${DateTime.now().year}',
+          revenue: (double.tryParse(summary['month_earnings']?.toString() ?? '0') ?? 0).toInt(),
+          transactions: (summary['total_orders'] ?? 0),
+          dailyAverage: (double.tryParse(summary['total_earnings']?.toString() ?? '0') ?? 0).toInt(),
+          revenueGrowth: 0, // Could be calculated if historical data exists
+          transactionGrowth: 0,
+          averageGrowth: 0,
+          chartValues: [], // API doesn't provide chart data yet
+        );
+        
+        // Mocking some products if API doesn't provide them yet, 
+        // but typically you'd map from summary['top_products'] if available.
+        _topProducts = []; 
+        
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading laporan data: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  ReportPeriodData get _data => _currentData;
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +162,7 @@ class _LaporanPageState extends State<LaporanPage> {
                 Expanded(
                   child: _MetricCard(
                     label: 'Total Transaksi',
-                    value: '${data.transactions}',
+                    value: data.transactions == 0 ? '0 transaksi' : '${data.transactions} pesanan',
                     icon: Icons.shopping_cart_outlined,
                     growth: data.transactionGrowth,
                   ),
@@ -199,7 +171,7 @@ class _LaporanPageState extends State<LaporanPage> {
                 Expanded(
                   child: _MetricCard(
                     label: 'Rata-rata Harian',
-                    value: _formatCurrency(data.dailyAverage),
+                    value: data.dailyAverage == 0 ? 'Rp -' : formatCurrency(data.dailyAverage.toDouble()),
                     icon: Icons.show_chart_rounded,
                     growth: data.averageGrowth,
                   ),
@@ -212,19 +184,43 @@ class _LaporanPageState extends State<LaporanPage> {
             _ChartCard(values: data.chartValues),
             const SizedBox(height: 18),
             _ProductHeader(
-              onSeeAll: () {
+              onSeeAll: _topProducts.isEmpty ? null : () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const ProductReportListPage(
-                      products: _products,
+                    builder: (_) => ProductReportListPage(
+                      products: _topProducts,
                     ),
                   ),
                 );
               },
             ),
             const SizedBox(height: 12),
-            _TopProductsCard(products: _products.take(3).toList()),
+            _topProducts.isEmpty 
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE3E9EE)),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(Icons.inventory_2_outlined, color: Color(0xFFCFD8DC), size: 40),
+                      SizedBox(height: 12),
+                      Text(
+                        'Belum ada transaksi',
+                        style: TextStyle(
+                          color: Color(0xFF78909C),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : _TopProductsCard(products: _topProducts.take(3).toList()),
           ],
         ),
       ),
@@ -384,7 +380,7 @@ class _RevenueCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _formatCurrency(data.revenue),
+                  data.revenue == 0 ? 'Rp -' : formatCurrency(data.revenue.toDouble()),
                   style: const TextStyle(
                     color: _text,
                     fontSize: 22,
@@ -579,10 +575,26 @@ class _ChartCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Expanded(
-            child: CustomPaint(
-              painter: _SalesLineChartPainter(values),
-              child: Container(),
-            ),
+            child: values.isEmpty 
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.bar_chart_rounded, color: _teal.withValues(alpha: 0.15), size: 80),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Belum ada data penjualan',
+                      style: TextStyle(
+                        color: Color(0xFF78909C),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                )
+              : CustomPaint(
+                  painter: _SalesLineChartPainter(values),
+                  child: Container(),
+                ),
           ),
         ],
       ),
@@ -591,9 +603,9 @@ class _ChartCard extends StatelessWidget {
 }
 
 class _ProductHeader extends StatelessWidget {
-  final VoidCallback onSeeAll;
+  final VoidCallback? onSeeAll;
 
-  const _ProductHeader({required this.onSeeAll});
+  const _ProductHeader({this.onSeeAll});
 
   @override
   Widget build(BuildContext context) {
@@ -710,7 +722,7 @@ class _ProductItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                _formatCurrency(product.revenue),
+                formatCurrency(product.revenue.toDouble()),
                 style: const TextStyle(
                   color: _text,
                   fontSize: 14,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'api_service.dart';
+import 'models/order.dart';
 import 'order_list_page.dart';
 
 const double _serviceFee = 2000;
@@ -123,15 +124,34 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 
-  void _advanceStatus() {
-    setState(() {
-      if (_status == 'Menunggu' || _status == 'Diproses') {
-        _status = 'Siap Diambil';
-      } else if (_status == 'Siap Diambil') {
-        _status = 'Selesai';
-        _finishedAt = DateTime.now();
+  void _advanceStatus() async {
+    String nextStatus = '';
+    if (_status == 'Menunggu' || _status == 'Diproses') {
+      nextStatus = 'Siap Diambil';
+    } else if (_status == 'Siap Diambil') {
+      nextStatus = 'Selesai';
+    }
+
+    if (nextStatus.isNotEmpty) {
+      final success = await ApiService.updateOrderStatus(widget.order.id, nextStatus);
+      if (success) {
+        setState(() {
+          _status = nextStatus;
+          if (_status == 'Selesai') {
+            _finishedAt = DateTime.now();
+          }
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Status diperbarui menjadi $nextStatus')),
+          );
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memperbarui status')),
+        );
       }
-    });
+    }
   }
 
   Future<void> _showCancelDialog() async {
@@ -257,11 +277,18 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       return;
     }
 
-    setState(() {
-      _status = 'Dibatalkan';
-      _cancelReason = reason;
-      _cancelTime = DateTime.now();
-    });
+    final success = await ApiService.updateOrderStatus(widget.order.id, 'Dibatalkan');
+    if (success) {
+      setState(() {
+        _status = 'Dibatalkan';
+        _cancelReason = reason;
+        _cancelTime = DateTime.now();
+      });
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal membatalkan pesanan')),
+      );
+    }
   }
 }
 
@@ -1343,16 +1370,22 @@ class _Avatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: order.avatarColor.withValues(alpha: 0.22),
         shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF173241).withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      alignment: Alignment.center,
-      child: Text(
-        order.customerName.substring(0, 1).toUpperCase(),
-        style: TextStyle(
-          color: order.avatarColor,
-          fontWeight: FontWeight.w900,
-          fontSize: size * 0.38,
+      child: ClipOval(
+        child: Image.asset(
+          order.avatarImagePath,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
         ),
       ),
     );

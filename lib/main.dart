@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'splash_page.dart';
 
 void main() {
-  runApp(EdupaysApp());
+  runApp(const EdupaysApp());
 }
 
 class EdupaysApp extends StatelessWidget {
+  const EdupaysApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -13,6 +16,8 @@ class EdupaysApp extends StatelessWidget {
 
       /// THEME BIAR KELIATAN RAPI
       theme: ThemeData(
+        textTheme: GoogleFonts.poppinsTextTheme(),
+        fontFamily: GoogleFonts.poppins().fontFamily,
         primaryColor: const Color(0xFF00BCC9),
         scaffoldBackgroundColor: Colors.white,
 
@@ -27,7 +32,7 @@ class EdupaysApp extends StatelessWidget {
       ),
 
       /// START DARI SPLASH
-      home: SplashPage(),
+      home: const SplashPage(),
     );
   }
 }

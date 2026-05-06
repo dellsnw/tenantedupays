@@ -6,8 +6,10 @@ import 'order_list_page.dart';
 import 'saldo_page.dart';
 
 class MainNavigation extends StatefulWidget {
+  const MainNavigation({super.key});
+
   @override
-  _MainNavigationState createState() => _MainNavigationState();
+  State<MainNavigation> createState() => _MainNavigationState();
 }
 
 class _MainNavigationState extends State<MainNavigation> {

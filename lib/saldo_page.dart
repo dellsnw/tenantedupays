@@ -1,11 +1,45 @@
 import 'package:flutter/material.dart';
+import 'api_service.dart';
+import 'order_list_page.dart' show formatCurrency;
 
 const Color _teal = Color(0xFF00B8C8);
 const Color _bg = Color(0xFFF5F8FA);
 const Color _text = Color(0xFF172B3A);
 
-class SaldoPage extends StatelessWidget {
+class SaldoPage extends StatefulWidget {
   const SaldoPage({super.key});
+
+  @override
+  State<SaldoPage> createState() => _SaldoPageState();
+}
+
+class _SaldoPageState extends State<SaldoPage> {
+  double _balance = 0;
+  double _todayEarnings = 0;
+  double _monthEarnings = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final summary = await ApiService.getSummary();
+      setState(() {
+        _balance = double.tryParse(summary['balance']?.toString() ?? '0') ?? 0;
+        _todayEarnings = double.tryParse(summary['total_earnings']?.toString() ?? '0') ?? 0;
+        _monthEarnings = double.tryParse(summary['month_earnings']?.toString() ?? '0') ?? 0;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading saldo data: $e');
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,86 +81,89 @@ class SaldoPage extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 112),
-          children: [
-            const _BalanceCard(),
-            const SizedBox(height: 16),
-            const Row(
-              children: [
-                Expanded(
-                  child: _IncomeSummaryCard(
-                    label: 'Hari Ini',
-                    amount: 345000,
-                    icon: Icons.trending_up_rounded,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: _IncomeSummaryCard(
-                    label: 'Bulan Ini',
-                    amount: 5890000,
-                    icon: Icons.calendar_today_outlined,
-                    tinted: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              height: 56,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const WithdrawBalancePage(),
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 112),
+            children: [
+              _BalanceCard(balance: _balance),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _IncomeSummaryCard(
+                      label: 'Hari Ini',
+                      amountString: _todayEarnings > 0 ? formatCurrency(_todayEarnings) : 'Rp -',
+                      subtitle: _todayEarnings > 0 ? 'Sudah termasuk pajak' : 'Belum ada transaksi',
+                      icon: Icons.trending_up_rounded,
                     ),
-                  );
-                },
-                icon: const Icon(Icons.call_made_rounded, size: 20),
-                label: const Text('Tarik Saldo ke Rekening'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _teal,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
                   ),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _IncomeSummaryCard(
+                      label: 'Bulan Ini',
+                      amountString: _monthEarnings > 0 ? formatCurrency(_monthEarnings) : 'Rp -',
+                      subtitle: _monthEarnings > 0 ? 'Data terakumulasi' : 'Belum ada data',
+                      icon: Icons.calendar_today_outlined,
+                      tinted: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: _balance > 0 ? () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WithdrawBalancePage()),
+                    );
+                  } : null,
+                  icon: const Icon(Icons.call_made_rounded, size: 20),
+                  label: Text(_balance > 0 ? 'Tarik Saldo ke Rekening' : 'Belum ada saldo untuk ditarik'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _balance > 0 ? _teal : _teal.withValues(alpha: 0.5),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Penarikan akan diproses maksimal 1x24 jam ke rekening yang terdaftar.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFF617484),
+                  fontSize: 12,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 22),
+              const _SectionHeader(),
+              const SizedBox(height: 12),
+              const _WithdrawalHistoryCard(),
+              const SizedBox(height: 14),
+              TextButton(
+                onPressed: () {},
+                child: const Text(
+                  'Lihat Semua Riwayat',
+                  style: TextStyle(
+                    color: _teal,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Penarikan akan diproses maksimal 1x24 jam ke rekening yang terdaftar.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF617484),
-                fontSize: 12,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 22),
-            const _SectionHeader(),
-            const SizedBox(height: 12),
-            const _WithdrawalHistoryCard(),
-            const SizedBox(height: 14),
-            TextButton(
-              onPressed: () {},
-              child: const Text(
-                'Lihat Semua Riwayat',
-                style: TextStyle(
-                  color: _teal,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -134,7 +171,8 @@ class SaldoPage extends StatelessWidget {
 }
 
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard();
+  final double balance;
+  const _BalanceCard({required this.balance});
 
   @override
   Widget build(BuildContext context) {
@@ -167,23 +205,11 @@ class _BalanceCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.12),
             ),
           ),
-          Positioned(
-            right: 20,
-            top: 34,
-            child: Container(
-              width: 88,
-              height: 10,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-          ),
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
+              const Text(
                 'Total Saldo Tersedia',
                 style: TextStyle(
                   color: Color(0xCCFFFFFF),
@@ -191,18 +217,27 @@ class _BalanceCard extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
-                'Rp 5.890.000',
-                style: TextStyle(
+                balance > 0 ? formatCurrency(balance) : 'Rp -',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 32,
                   fontWeight: FontWeight.w900,
                   height: 1,
                 ),
               ),
-              SizedBox(height: 16),
-              _BalancePill(),
+              const SizedBox(height: 4),
+              Text(
+                balance > 0 ? 'Saldo dapat ditarik sekarang' : 'Saldo akan muncul setelah ada transaksi',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const _BalancePill(),
             ],
           ),
         ],
@@ -236,13 +271,15 @@ class _BalancePill extends StatelessWidget {
 
 class _IncomeSummaryCard extends StatelessWidget {
   final String label;
-  final int amount;
+  final String amountString;
+  final String subtitle;
   final IconData icon;
   final bool tinted;
 
   const _IncomeSummaryCard({
     required this.label,
-    required this.amount,
+    required this.amountString,
+    required this.subtitle,
     required this.icon,
     this.tinted = false,
   });
@@ -292,18 +329,27 @@ class _IncomeSummaryCard extends StatelessWidget {
             label.toUpperCase(),
             style: const TextStyle(
               color: Color(0xFF617484),
-              fontSize: 12,
+              fontSize: 11,
               letterSpacing: 0.4,
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            _formatCurrency(amount),
+            amountString,
             style: const TextStyle(
               color: _text,
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: Color(0xFF78909C),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -348,6 +394,34 @@ class _WithdrawalHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const historyItems = []; // Set kosong untuk kondisi akun baru
+
+    if (historyItems.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE9EEF2)),
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.history_rounded, color: Color(0xFFCFD8DC), size: 40),
+            SizedBox(height: 12),
+            Text(
+              'Belum ada riwayat penarikan',
+              style: TextStyle(
+                color: Color(0xFF78909C),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
@@ -364,12 +438,12 @@ class _WithdrawalHistoryCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          for (var index = 0; index < items.length; index++) ...[
+          for (var index = 0; index < historyItems.length; index++) ...[
             _WithdrawalItem(
-              date: items[index].$1,
-              amount: items[index].$2,
+              date: historyItems[index].$1,
+              amount: historyItems[index].$2,
             ),
-            if (index != items.length - 1)
+            if (index != historyItems.length - 1)
               const Divider(height: 1, color: Color(0xFFE3E9EE)),
           ],
         ],
@@ -655,21 +729,16 @@ class BusinessProfilePage extends StatefulWidget {
 }
 
 class _BusinessProfilePageState extends State<BusinessProfilePage> {
-  final _nameController = TextEditingController(text: 'Kantin Kampus Sejahtera');
-  final _emailController = TextEditingController(text: 'tenant@kampus.ac.id');
-  final _phoneController = TextEditingController(text: '081234567890');
-  final _descriptionController = TextEditingController(
-    text:
-        'Kantin kampus dengan menu makanan rumahan, minuman segar, dan layanan cepat untuk mahasiswa.',
-  );
-  final _bankController = TextEditingController(text: 'BCA');
-  final _accountNumberController = TextEditingController(text: '1234567890');
-  final _accountOwnerController = TextEditingController(
-    text: 'Kantin Kampus Sejahtera',
-  );
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _bankController = TextEditingController();
+  final _accountNumberController = TextEditingController();
+  final _accountOwnerController = TextEditingController();
 
   String _category = 'Makanan';
-  String _location = 'Kantin Kampus';
+  String _location = 'Tenant Kantin Telkom University';
   TimeOfDay _openTime = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay _closeTime = const TimeOfDay(hour: 20, minute: 0);
   bool _openToday = true;
@@ -677,30 +746,33 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
   bool _acceptOrders = true;
   bool _photoChanged = false;
   bool _submitted = false;
+  bool _isLoading = true;
 
-  late final _InitialBusinessProfile _initial;
+  _InitialBusinessProfile? _initial;
 
   bool get _hasChanges {
-    return _nameController.text != _initial.name ||
-        _emailController.text != _initial.email ||
-        _phoneController.text != _initial.phone ||
-        _descriptionController.text != _initial.description ||
-        _bankController.text != _initial.bank ||
-        _accountNumberController.text != _initial.accountNumber ||
-        _accountOwnerController.text != _initial.accountOwner ||
-        _category != _initial.category ||
-        _location != _initial.location ||
-        _openTime != _initial.openTime ||
-        _closeTime != _initial.closeTime ||
-        _openToday != _initial.openToday ||
-        _visibleToCustomer != _initial.visibleToCustomer ||
-        _acceptOrders != _initial.acceptOrders ||
+    if (_initial == null) return false;
+    return _nameController.text != _initial!.name ||
+        _emailController.text != _initial!.email ||
+        _phoneController.text != _initial!.phone ||
+        _descriptionController.text != _initial!.description ||
+        _bankController.text != _initial!.bank ||
+        _accountNumberController.text != _initial!.accountNumber ||
+        _accountOwnerController.text != _initial!.accountOwner ||
+        _category != _initial!.category ||
+        _location != _initial!.location ||
+        _openTime != _initial!.openTime ||
+        _closeTime != _initial!.closeTime ||
+        _openToday != _initial!.openToday ||
+        _visibleToCustomer != _initial!.visibleToCustomer ||
+        _acceptOrders != _initial!.acceptOrders ||
         _photoChanged;
   }
 
   bool get _isPhoneValid {
     final phone = _phoneController.text.trim();
-    return phone.isNotEmpty && RegExp(r'^[0-9]+$').hasMatch(phone);
+    if (phone.isEmpty) return true; // Allow empty initially
+    return RegExp(r'^[0-9]+$').hasMatch(phone);
   }
 
   bool get _isValid {
@@ -710,22 +782,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
   @override
   void initState() {
     super.initState();
-    _initial = _InitialBusinessProfile(
-      name: _nameController.text,
-      email: _emailController.text,
-      phone: _phoneController.text,
-      description: _descriptionController.text,
-      bank: _bankController.text,
-      accountNumber: _accountNumberController.text,
-      accountOwner: _accountOwnerController.text,
-      category: _category,
-      location: _location,
-      openTime: _openTime,
-      closeTime: _closeTime,
-      openToday: _openToday,
-      visibleToCustomer: _visibleToCustomer,
-      acceptOrders: _acceptOrders,
-    );
+    _fetchProfile();
 
     for (final controller in [
       _nameController,
@@ -737,6 +794,57 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
       _accountOwnerController,
     ]) {
       controller.addListener(_refresh);
+    }
+  }
+
+  Future<void> _fetchProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final profile = await ApiService.getProfile();
+      
+      // Split jam_operasional if exists (format "HH:mm - HH:mm")
+      String jamOp = profile['jam_operasional'] ?? '08:00 - 20:00';
+      List<String> times = jamOp.split(' - ');
+      if (times.length == 2) {
+        List<String> open = times[0].split(':');
+        List<String> close = times[1].split(':');
+        if (open.length == 2) _openTime = TimeOfDay(hour: int.parse(open[0]), minute: int.parse(open[1]));
+        if (close.length == 2) _closeTime = TimeOfDay(hour: int.parse(close[0]), minute: int.parse(close[1]));
+      }
+
+      setState(() {
+        _nameController.text = profile['nama_usaha'] ?? '';
+        _emailController.text = profile['email'] ?? '';
+        _phoneController.text = profile['nomor_telepon'] ?? '';
+        _category = profile['kategori_usaha'] ?? 'Makanan';
+        _location = profile['lokasi_usaha'] ?? 'Tenant Kantin Telkom University';
+        
+        // Informasi Rekening (Dikosongkan sesuai permintaan)
+        _bankController.text = '';
+        _accountNumberController.text = '';
+        _accountOwnerController.text = '';
+
+        _initial = _InitialBusinessProfile(
+          name: _nameController.text,
+          email: _emailController.text,
+          phone: _phoneController.text,
+          description: _descriptionController.text,
+          bank: _bankController.text,
+          accountNumber: _accountNumberController.text,
+          accountOwner: _accountOwnerController.text,
+          category: _category,
+          location: _location,
+          openTime: _openTime,
+          closeTime: _closeTime,
+          openToday: _openToday,
+          visibleToCustomer: _visibleToCustomer,
+          acceptOrders: _acceptOrders,
+        );
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading profile: $e');
+      setState(() => _isLoading = false);
     }
   }
 
@@ -775,7 +883,9 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
           ),
         ),
       ),
-      body: SafeArea(
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator(color: _teal))
+        : SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 126),
           children: [
@@ -850,12 +960,12 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                     ),
                     items: const [
                       DropdownMenuItem(
-                        value: 'Kantin Kampus',
-                        child: Text('Kantin Kampus'),
+                        value: 'Tenant Kantin Telkom University',
+                        child: Text('Tenant Kantin Telkom University'),
                       ),
                       DropdownMenuItem(
-                        value: 'Kantin Pesantren',
-                        child: Text('Kantin Pesantren'),
+                        value: 'Tenant Kantin Pesantren Al-Ihsan',
+                        child: Text('Tenant Kantin Pesantren Al-Ihsan'),
                       ),
                     ],
                     onChanged: (value) {
@@ -981,14 +1091,14 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                   _ProfileTextField(
                     controller: _bankController,
                     label: 'Nama Bank',
-                    hint: 'Contoh: BCA',
+                    hint: 'Belum ditambahkan',
                     icon: Icons.account_balance_outlined,
                   ),
                   const SizedBox(height: 12),
                   _ProfileTextField(
                     controller: _accountNumberController,
                     label: 'Nomor Rekening',
-                    hint: 'Nomor rekening',
+                    hint: 'Belum ditambahkan',
                     icon: Icons.credit_card_outlined,
                     keyboardType: TextInputType.number,
                   ),
@@ -996,7 +1106,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                   _ProfileTextField(
                     controller: _accountOwnerController,
                     label: 'Nama Pemilik Rekening',
-                    hint: 'Nama sesuai buku rekening',
+                    hint: 'Belum ditambahkan',
                     icon: Icons.person_outline,
                   ),
                   const SizedBox(height: 14),
@@ -1124,20 +1234,44 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
     });
   }
 
-  void _saveProfile() {
+  Future<void> _saveProfile() async {
     setState(() => _submitted = true);
 
     if (!_isValid) {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profil usaha berhasil diperbarui'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    Navigator.pop(context);
+    setState(() => _isLoading = true);
+    
+    final data = {
+      'nama_usaha': _nameController.text.trim(),
+      'nomor_telepon': _phoneController.text.trim(),
+      'kategori_usaha': _category,
+      'lokasi_usaha': _location,
+      'jam_operasional': '${_formatTime(_openTime)} - ${_formatTime(_closeTime)}',
+    };
+
+    final success = await ApiService.updateProfile(data);
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil berhasil diperbarui'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal memperbarui profil'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   String _formatTime(TimeOfDay time) {
@@ -1286,6 +1420,7 @@ class _BusinessCategoryToggle extends StatelessWidget {
     return Row(
       children: [
         Expanded(
+          flex: 3,
           child: _CategoryButton(
             label: 'Makanan',
             icon: Icons.rice_bowl_outlined,
@@ -1293,13 +1428,24 @@ class _BusinessCategoryToggle extends StatelessWidget {
             onTap: () => onChanged('Makanan'),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
+          flex: 3,
           child: _CategoryButton(
             label: 'Minuman',
             icon: Icons.local_drink_outlined,
             selected: value == 'Minuman',
             onTap: () => onChanged('Minuman'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 5,
+          child: _CategoryButton(
+            label: 'Makanan & Minuman',
+            icon: Icons.restaurant_outlined,
+            selected: value == 'Makanan & Minuman',
+            onTap: () => onChanged('Makanan & Minuman'),
           ),
         ),
       ],
